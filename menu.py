@@ -12,11 +12,10 @@ pygame.display.set_caption("Console de Videogame")
 clock = pygame.time.Clock()
 FPS = 60
 
-# Definições de cores
+# Cores
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
 
 # ============================== JOGO PONG ==============================
 
@@ -49,7 +48,7 @@ class Paddle(pygame.sprite.Sprite):
 class Ball(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface((20, 20))
+        self.image = pygame.Surface((20, 20), pygame.SRCALPHA)
         pygame.draw.ellipse(self.image, WHITE, [0, 0, 20, 20])
         self.rect = self.image.get_rect(center=(WIDTH//2, HEIGHT//2))
         self.speed_x = random.choice([4, -4])
@@ -94,7 +93,7 @@ def pong_game():
     font = pygame.font.SysFont(None, 36)
     running = True
     while running:
-        clock.tick(60)
+        clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -118,30 +117,40 @@ def pong_game():
         score_text = font.render(f"{score_left}   {score_right}", True, WHITE)
         screen.blit(score_text, (WIDTH//2 - score_text.get_width()//2, 20))
         pygame.display.flip()
-    time.sleep(1)
+    time.sleep(0.5)
+    # Retorna ao menu após encerrar o Pong
 
 # ============================== JOGO DA COBRINHA ==============================
 
 def snake_game():
     snake_size = 20
     snake_speed = 10
+
+    # Inicializa a cobra (lista de blocos)
     snake_pos = [[100, 50], [90, 50], [80, 50]]
     direction = "RIGHT"
     change_to = direction
     score = 0
-    food_pos = [random.randrange(1, WIDTH//snake_size)*snake_size,
+
+    # Gera a fruta em coordenadas múltiplas do snake_size
+    def spawn_food():
+        return [random.randrange(1, WIDTH//snake_size)*snake_size,
                 random.randrange(1, HEIGHT//snake_size)*snake_size]
-    food_spawn = True
+    food_pos = spawn_food()
     font = pygame.font.SysFont("arial", 35)
+
+    # Tenta iniciar o joystick (para Snake, usamos somente o primeiro)
     joystick = None
     if pygame.joystick.get_count() >= 1:
         joystick = pygame.joystick.Joystick(0)
         joystick.init()
+
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            # Teclado
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP and direction != "DOWN":
                     change_to = "UP"
@@ -151,6 +160,7 @@ def snake_game():
                     change_to = "LEFT"
                 elif event.key == pygame.K_RIGHT and direction != "LEFT":
                     change_to = "RIGHT"
+            # Joystick: usamos movimentos nos eixos
             if event.type == pygame.JOYAXISMOTION and joystick:
                 if event.axis == 1:
                     if event.value < -0.5 and direction != "DOWN":
@@ -162,39 +172,49 @@ def snake_game():
                         change_to = "LEFT"
                     elif event.value > 0.5 and direction != "LEFT":
                         change_to = "RIGHT"
+
         direction = change_to
+
+        # Movimenta a cobra
+        head = snake_pos[0][:]
         if direction == "UP":
-            new_head = [snake_pos[0][0], snake_pos[0][1] - snake_size]
+            head[1] -= snake_size
         elif direction == "DOWN":
-            new_head = [snake_pos[0][0], snake_pos[0][1] + snake_size]
+            head[1] += snake_size
         elif direction == "LEFT":
-            new_head = [snake_pos[0][0] - snake_size, snake_pos[0][1]]
+            head[0] -= snake_size
         elif direction == "RIGHT":
-            new_head = [snake_pos[0][0] + snake_size, snake_pos[0][1]]
-        snake_pos.insert(0, new_head)
-        if snake_pos[0] == food_pos:
+            head[0] += snake_size
+        snake_pos.insert(0, head)
+
+        # Verifica se a cobra pegou a fruta
+        snake_head_rect = pygame.Rect(snake_pos[0][0], snake_pos[0][1], snake_size, snake_size)
+        food_rect = pygame.Rect(food_pos[0], food_pos[1], snake_size, snake_size)
+        if snake_head_rect.colliderect(food_rect):
             score += 1
-            food_spawn = False
+            food_pos = spawn_food()
         else:
             snake_pos.pop()
-        if not food_spawn:
-            food_pos = [random.randrange(1, WIDTH//snake_size)*snake_size,
-                        random.randrange(1, HEIGHT//snake_size)*snake_size]
-            food_spawn = True
+
+        # Checa colisão com paredes
+        if (snake_pos[0][0] < 0 or snake_pos[0][0] >= WIDTH or
+            snake_pos[0][1] < 0 or snake_pos[0][1] >= HEIGHT):
+            running = False
+        # Checa colisão com si mesmo
+        for block in snake_pos[1:]:
+            if snake_pos[0] == block:
+                running = False
+
         screen.fill(BLACK)
         for pos in snake_pos:
             pygame.draw.rect(screen, GREEN, pygame.Rect(pos[0], pos[1], snake_size, snake_size))
         pygame.draw.rect(screen, WHITE, pygame.Rect(food_pos[0], food_pos[1], snake_size, snake_size))
-        if snake_pos[0][0] < 0 or snake_pos[0][0] > WIDTH - snake_size or snake_pos[0][1] < 0 or snake_pos[0][1] > HEIGHT - snake_size:
-            running = False
-        for block in snake_pos[1:]:
-            if snake_pos[0] == block:
-                running = False
         score_text = font.render("Score: " + str(score), True, WHITE)
         screen.blit(score_text, (10, 10))
         pygame.display.flip()
         clock.tick(snake_speed)
-    time.sleep(1)
+    time.sleep(0.5)
+    # Retorna ao menu após encerrar o Snake
 
 # ============================== MENU ==============================
 
@@ -209,7 +229,7 @@ def menu():
     running = True
     while running:
         screen.fill(BLACK)
-        title = font.render("Menu: Use joystick para navegar", True, WHITE)
+        title = font.render("Menu: Navegue com joystick/teclado", True, WHITE)
         screen.blit(title, (WIDTH//4, HEIGHT//4))
         for i, option in enumerate(options):
             color = WHITE if i == selected else (100, 100, 100)
@@ -219,23 +239,23 @@ def menu():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # Navegação com joystick: eixo vertical
+            # Navegação com joystick:
             if event.type == pygame.JOYAXISMOTION and menu_joystick:
                 if event.axis == 1:
                     if event.value < -0.5:
                         selected = (selected - 1) % len(options)
-                        time.sleep(0.2)
                     elif event.value > 0.5:
                         selected = (selected + 1) % len(options)
-                        time.sleep(0.2)
+            # Seleção com botão X (botão 0) do DualSense
             if event.type == pygame.JOYBUTTONDOWN and menu_joystick:
-                if event.button == 0:  # Botão X do DualSense
+                if event.button == 0:
                     if options[selected] == "Pong":
                         pong_game()
                     elif options[selected] == "Snake":
                         snake_game()
                     elif options[selected] == "Exit":
                         running = False
+            # Teclado como fallback
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
                     selected = (selected - 1) % len(options)
@@ -253,4 +273,3 @@ def menu():
 
 if __name__ == "__main__":
     menu()
-
